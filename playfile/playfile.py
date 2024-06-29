@@ -1,6 +1,7 @@
 import io
 import logging
-import asyncio
+import tempfile
+import os
 from redbot.core import commands
 import discord
 
@@ -32,50 +33,44 @@ class PlayFile(commands.Cog):
             return await ctx.send("You need to be in a voice channel to use this command.")
         
         voice_channel = ctx.author.voice.channel
-        
+        temp_audio_file = None
         try:
-            # Download the attachment to a BytesIO object
-            file_bytes = io.BytesIO()
-            await attachment.save(file_bytes)
-            file_bytes.seek(0)
+            # Create a temporary file with a unique name
+            temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{attachment.filename}")
+            temp_file_path = temp_audio_file.name
+            temp_audio_file.close()  # Close the file so it can be overwritten
+
+            # Download the attachment and overwrite the temporary file
+            await attachment.save(temp_file_path)
+            log.info(f"File saved to temporary file: {temp_file_path}")
 
             # Connect to the voice channel
-            if ctx.voice_client is None:
-                voice_client = await voice_channel.connect()
-            else:
-                voice_client = ctx.voice_client
-                if voice_client.channel != voice_channel:
-                    await voice_client.move_to(voice_channel)
+            voice_client = await voice_channel.connect()
 
-            # Create a discord.FFmpegOpusAudio source
-            audio_source = discord.FFmpegOpusAudio(file_bytes, pipe=True)
-
-            # Play the audio file
+            # Play the audio file directly using FFmpegPCMAudio
+            audio_source = discord.FFmpegPCMAudio(temp_file_path)
             voice_client.play(audio_source)
-            
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
 
             # Wait for the audio to finish playing
             while voice_client.is_playing():
-                await asyncio.sleep(1)
+                await discord.asyncio.sleep(1)
 
-            # Wait a bit more to ensure the audio is fully finished
-            await asyncio.sleep(1)
-
+            # Disconnect after playing
+            await voice_client.disconnect()
         except Exception as e:
             log.error(f"Error playing file: {str(e)}", exc_info=True)
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
         finally:
-            # Ensure voice client is disconnected
-            if voice_client and voice_client.is_connected():
-                await voice_client.disconnect()
+            # Clean up temporary file
+            if temp_audio_file and os.path.exists(temp_audio_file.name):
+                os.remove(temp_audio_file.name)
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
         """Stop the currently playing audio file and disconnect."""
         if ctx.voice_client:
-            ctx.voice_client.stop()
             await ctx.voice_client.disconnect()
             await ctx.send("Stopped playing file and disconnected from the voice channel.")
         else:
