@@ -51,9 +51,7 @@ class PlayFile(commands.Cog):
             await audio_cog.command_play(
                 ctx, 
                 query=audio_file,
-                forced=True,
-                uris=False,
-                query_obj=audio_cog,
+                query_obj=ctx,
                 interface=ctx.send
             )
 
