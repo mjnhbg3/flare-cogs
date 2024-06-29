@@ -13,7 +13,17 @@
         "file",
         "voice"
     ],
-    "requirements": ["PyNaCl"],
+    "requirements": [
+        "PyNaCl"
+    ],
     "min_bot_version": "3.5.0",
-    "hidden": false
+    "hidden": false,
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
+    "permissions": [
+        "send_messages",
+        "embed_links",
+        "attach_files",
+        "speak",
+        "connect"
+    ]
 }
