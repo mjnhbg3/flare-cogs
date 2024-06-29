@@ -1,12 +1,19 @@
 {
-    "author": ["Your Name"],
-    "install_msg": "Thanks for installing the PlayFile cog. Use [p]playfile with an attached audio file to play it in your voice channel.",
+    "author": [
+        "Your Name (YourName#0000)"
+    ],
+    "install_msg": "Thank you for installing PlayFile! This cog allows you to play attached audio files in your voice channel. Use `[p]playfile` with an attached audio file to play it.\nThis cog requires the Audio cog to be loaded and configured, as it uses Lavalink for playback.",
     "name": "PlayFile",
-    "short": "Play attached audio files in voice channels",
-    "description": "This cog allows users to play attached audio files (mp3, wav, aac, flac) in their current voice channel.",
-    "tags": ["audio", "music", "file"],
-    "requirements": [],
-    "hidden": false,
     "disabled": false,
-    "type": "COG"
+    "short": "Play attached audio files in voice channels",
+    "description": "This cog allows users to play attached audio files (mp3, wav, aac, flac) in their current voice channel using the `[p]playfile` command.",
+    "tags": [
+        "audio",
+        "music",
+        "file",
+        "voice"
+    ],
+    "requirements": [],
+    "min_bot_version": "3.5.0",
+    "hidden": false
 }
