@@ -76,12 +76,19 @@ class PlayFile(commands.Cog):
 
         finally:
             # Clean up temporary files
-            if os.path.exists(temp_audio_file.name):
-                os.remove(temp_audio_file.name)
-                log.info("Temporary file deleted: " + temp_audio_file.name)
-            if os.path.exists(processed_file.name):
-                os.remove(processed_file.name)
-                log.info("Processed file deleted: " + processed_file.name)
+            try:
+                if os.path.exists(temp_audio_file.name):
+                    os.remove(temp_audio_file.name)
+                    log.info("Temporary file deleted: " + temp_audio_file.name)
+            except Exception as e:
+                log.error(f"Error deleting temporary file: {temp_audio_file.name} - {str(e)}")
+
+            try:
+                if os.path.exists(processed_file.name):
+                    os.remove(processed_file.name)
+                    log.info("Processed file deleted: " + processed_file.name)
+            except Exception as e:
+                log.error(f"Error deleting processed file: {processed_file.name} - {str(e)}")
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
