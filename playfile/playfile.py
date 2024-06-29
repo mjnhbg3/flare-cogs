@@ -1,6 +1,7 @@
 import io
 import logging
 import tempfile
+import subprocess
 from redbot.core import commands
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
@@ -43,15 +44,23 @@ class PlayFile(commands.Cog):
 
         try:
             # Download the attachment to a temporary file
-            with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio_file:
                 await attachment.save(temp_audio_file.name)
                 temp_audio_file.seek(0)
                 log.info("File saved to temporary file")
 
+                # Process the file with FFmpeg to ensure stereo output
+                processed_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                ffmpeg_command = [
+                    "ffmpeg", "-i", temp_audio_file.name, "-ac", "2", "-f", "mp3", processed_file.name
+                ]
+                subprocess.run(ffmpeg_command, check=True)
+                log.info("File processed with FFmpeg")
+
             # Use Audio cog to play the file
             await audio_cog.command_play(
                 ctx, 
-                query=temp_audio_file.name
+                query=processed_file.name
             )
 
             await ctx.send(f"Now playing: {attachment.filename}")
