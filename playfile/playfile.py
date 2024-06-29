@@ -37,24 +37,26 @@ class PlayFile(commands.Cog):
         voice_channel = ctx.author.voice.channel
 
         try:
-            # Create temporary file
+            # Create temporary files
             temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+            processed_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
             temp_audio_file.close()
+            processed_audio_file.close()
 
             # Download the attachment to the temporary file
             await attachment.save(temp_audio_file.name)
             log.info("File saved to temporary file")
 
-            # Process the file with FFmpeg to ensure mono output
+            # Process the file with FFmpeg to ensure stereo output
             ffmpeg_command = [
-                "ffmpeg", "-y", "-i", temp_audio_file.name, "-ac", "2", temp_audio_file.name
+                "ffmpeg", "-y", "-i", temp_audio_file.name, "-ac", "2", processed_audio_file.name
             ]
             subprocess.run(ffmpeg_command, check=True)
             log.info("File processed with FFmpeg to stereo")
 
             # Connect to voice channel and play the file
             vc = await voice_channel.connect()
-            vc.play(discord.FFmpegPCMAudio(temp_audio_file.name))
+            vc.play(discord.FFmpegPCMAudio(processed_audio_file.name))
 
             while vc.is_playing():
                 await discord.utils.sleep(0.1)
@@ -63,18 +65,25 @@ class PlayFile(commands.Cog):
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
 
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
             log.error(f"Error playing file: {str(e)}", exc_info=True)
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
 
         finally:
-            # Clean up temporary file
+            # Clean up temporary files
             try:
                 if os.path.exists(temp_audio_file.name):
                     os.remove(temp_audio_file.name)
                     log.info("Temporary file deleted: " + temp_audio_file.name)
             except Exception as e:
                 log.error(f"Error deleting temporary file: {temp_audio_file.name} - {str(e)}")
+
+            try:
+                if os.path.exists(processed_audio_file.name):
+                    os.remove(processed_audio_file.name)
+                    log.info("Processed file deleted: " + processed_audio_file.name)
+            except Exception as e:
+                log.error(f"Error deleting processed file: {processed_audio_file.name} - {str(e)}")
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
