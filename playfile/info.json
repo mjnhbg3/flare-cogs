@@ -1,0 +1,12 @@
+{
+    "author": ["Your Name"],
+    "install_msg": "Thanks for installing the PlayFile cog. Use [p]playfile with an attached audio file to play it in your voice channel.",
+    "name": "PlayFile",
+    "short": "Play attached audio files in voice channels",
+    "description": "This cog allows users to play attached audio files (mp3, wav, aac, flac) in their current voice channel.",
+    "tags": ["audio", "music", "file"],
+    "requirements": [],
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
