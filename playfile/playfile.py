@@ -44,18 +44,22 @@ class PlayFile(commands.Cog):
             return await ctx.send("The Audio cog is not loaded. Please load it to use this command.")
 
         try:
-            # Download the attachment to a temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio_file:
-                await attachment.save(temp_audio_file.name)
-                log.info("File saved to temporary file")
+            # Create temporary files
+            temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+            processed_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+            temp_audio_file.close()
+            processed_file.close()
 
-                # Process the file with FFmpeg to ensure mono output
-                processed_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-                ffmpeg_command = [
-                    "ffmpeg", "-i", temp_audio_file.name, "-ac", "1", "-f", "mp3", processed_file.name
-                ]
-                subprocess.run(ffmpeg_command, check=True)
-                log.info("File processed with FFmpeg to mono")
+            # Download the attachment to the temporary file
+            await attachment.save(temp_audio_file.name)
+            log.info("File saved to temporary file")
+
+            # Process the file with FFmpeg to ensure mono output
+            ffmpeg_command = [
+                "ffmpeg", "-y", "-i", temp_audio_file.name, "-ac", "1", processed_file.name
+            ]
+            subprocess.run(ffmpeg_command, check=True)
+            log.info("File processed with FFmpeg to mono")
 
             # Use Audio cog to play the file
             await audio_cog.command_play(
@@ -66,14 +70,18 @@ class PlayFile(commands.Cog):
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
 
-            # Clean up temporary files
-            os.remove(temp_audio_file.name)
-            os.remove(processed_file.name)
-            log.info("Temporary files deleted")
-
         except Exception as e:
             log.error(f"Error playing file: {str(e)}", exc_info=True)
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
+
+        finally:
+            # Clean up temporary files
+            if os.path.exists(temp_audio_file.name):
+                os.remove(temp_audio_file.name)
+                log.info("Temporary file deleted: " + temp_audio_file.name)
+            if os.path.exists(processed_file.name):
+                os.remove(processed_file.name)
+                log.info("Processed file deleted: " + processed_file.name)
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
