@@ -1,17 +1,15 @@
-from redbot.core import commands
-from redbot.cogs.audio import Audio
-import discord
-import os
+import io
+import logging
 import asyncio
 import tempfile
-import logging
+from redbot.core import commands
+import discord
 
 log = logging.getLogger("red.playfile")
 
 class PlayFile(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.audio = self.bot.get_cog("Audio")
         self.currently_playing = {}
 
     async def cleanup(self, ctx, temp_file_name=None):
@@ -21,10 +19,10 @@ class PlayFile(commands.Cog):
         
         if temp_file_name:
             try:
-                os.unlink(temp_file_name)
-                log.info(f"Temporary file {temp_file_name} deleted")
+                temp_file_name.close()
+                log.info(f"Temporary file closed")
             except Exception as e:
-                log.error(f"Error deleting temporary file: {str(e)}")
+                log.error(f"Error closing temporary file: {str(e)}")
 
         if ctx.voice_client:
             await ctx.voice_client.disconnect()
@@ -51,42 +49,36 @@ class PlayFile(commands.Cog):
 
         self.currently_playing[guild_id] = True
 
-        if ctx.voice_client:
-            await ctx.voice_client.move_to(voice_channel)
-        else:
-            try:
-                await voice_channel.connect()
-            except discord.errors.ClientException:
-                del self.currently_playing[guild_id]
-                return await ctx.send("I couldn't connect to your voice channel. Please try again.")
-
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(attachment.filename)[1])
-        temp_file_name = temp_file.name
-        temp_file.close()
-
         try:
             # Download the attachment
-            await attachment.save(temp_file_name)
-            log.info(f"File saved to {temp_file_name}")
+            audio_file = io.BytesIO()
+            await attachment.save(audio_file)
+            audio_file.seek(0)
+            log.info(f"File saved to memory")
 
-            # Use the Audio cog to play the file
-            await self.audio.command_play(ctx, query=temp_file_name)
+            # Connect to voice channel
+            if ctx.voice_client:
+                await ctx.voice_client.move_to(voice_channel)
+            else:
+                await voice_channel.connect()
 
-            # Wait for the song to finish
+            # Play the file
+            ctx.voice_client.play(discord.FFmpegPCMAudio(audio_file, pipe=True))
+            await ctx.send(f"Now playing: {attachment.filename}")
+
+            # Wait for the audio to finish
             while ctx.voice_client and ctx.voice_client.is_playing():
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.1)
 
         except Exception as e:
             log.error(f"Error playing file: {str(e)}")
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
         finally:
-            await self.cleanup(ctx, temp_file_name)
+            await self.cleanup(ctx, audio_file)
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
-        """Stop the currently playing audio file and disconnect.
-        
-        Note: This command is specific to the PlayFile cog and is different from the Audio cog's stop command."""
+        """Stop the currently playing audio file and disconnect."""
         if ctx.voice_client:
             ctx.voice_client.stop()
         await self.cleanup(ctx)
