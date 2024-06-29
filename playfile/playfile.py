@@ -4,6 +4,7 @@ import tempfile
 import os
 from redbot.core import commands
 import discord
+from discord.opus import Encoder as OpusEncoder
 
 log = logging.getLogger("red.playfile")
 ALLOWED_EXTENSIONS = {"mp3", "wav", "ogg"}
@@ -34,6 +35,7 @@ class PlayFile(commands.Cog):
         
         voice_channel = ctx.author.voice.channel
         temp_audio_file = None
+        voice_client = None
         try:
             # Download the attachment to a temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{attachment.filename}", mode='wb') as temp_file:
@@ -43,6 +45,12 @@ class PlayFile(commands.Cog):
 
             # Connect to the voice channel
             voice_client = await voice_channel.connect()
+
+            # Check if Opus is loaded
+            if not discord.opus.is_loaded():
+                log.warning("Opus is not loaded. Attempting to load...")
+                if not discord.opus.load_opus('libopus'):
+                    raise discord.opus.OpusNotLoaded("Opus library could not be loaded.")
 
             # Play the audio file using FFmpegPCMAudio with stereo output
             audio_source = discord.FFmpegPCMAudio(temp_audio_file, options='-ac 2')
@@ -54,19 +62,30 @@ class PlayFile(commands.Cog):
             while voice_client.is_playing():
                 await discord.asyncio.sleep(1)
 
-            # Disconnect after playing
-            await voice_client.disconnect()
-
+        except discord.opus.OpusNotLoaded:
+            log.error("Opus is not loaded and couldn't be loaded automatically. Please ensure Opus is installed correctly.")
+            await ctx.send("An error occurred while trying to play the file. The audio library (Opus) is not properly installed.")
         except Exception as e:
             log.error(f"Error playing file: {str(e)}", exc_info=True)
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
         finally:
+            # Disconnect after playing or if an error occurred
+            if voice_client and voice_client.is_connected():
+                await voice_client.disconnect()
+
             # Clean up temporary file
             if temp_audio_file and os.path.exists(temp_audio_file):
                 try:
+                    # Wait a bit to ensure the file is no longer in use
+                    await discord.asyncio.sleep(1)
                     os.remove(temp_audio_file)
                 except Exception as e:
                     log.error(f"Error removing temporary file: {str(e)}", exc_info=True)
+                    # If we can't delete it now, schedule it for deletion when the bot exits
+                    try:
+                        os.rename(temp_audio_file, temp_audio_file + '.to_delete')
+                    except Exception:
+                        pass
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
