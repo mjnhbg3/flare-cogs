@@ -1,6 +1,7 @@
 import io
 import logging
 import tempfile
+import os
 from redbot.core import commands
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
@@ -16,6 +17,7 @@ def is_allowed_by_whitelist(filename: str) -> bool:
 class PlayFile(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.temp_files = []
 
     async def red_delete_data_for_user(self, **kwargs):
         """Nothing to delete."""
@@ -43,10 +45,11 @@ class PlayFile(commands.Cog):
 
         try:
             # Download the attachment to a temporary file
-            with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
-                await attachment.save(temp_audio_file.name)
-                temp_audio_file.seek(0)
-                log.info("File saved to temporary file")
+            temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{attachment.filename}")
+            await attachment.save(temp_audio_file.name)
+            temp_audio_file.seek(0)
+            self.temp_files.append(temp_audio_file.name)
+            log.info(f"File saved to temporary file {temp_audio_file.name}")
 
             # Use Audio cog to play the file
             await audio_cog.command_play(
@@ -70,6 +73,19 @@ class PlayFile(commands.Cog):
 
         await audio_cog.command_stop(ctx)
         await ctx.send("Stopped playing file and disconnected from the voice channel.")
+        self.cleanup_temp_files()
+
+    def cleanup_temp_files(self):
+        for file_path in self.temp_files:
+            try:
+                os.remove(file_path)
+                log.info(f"Temporary file {file_path} deleted.")
+            except Exception as e:
+                log.error(f"Error deleting temporary file {file_path}: {str(e)}")
+        self.temp_files = []
+
+    async def cog_unload(self):
+        self.cleanup_temp_files()
 
 async def setup(bot):
     await bot.add_cog(PlayFile(bot))
