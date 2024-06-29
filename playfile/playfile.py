@@ -1,5 +1,6 @@
 import io
 import logging
+import tempfile
 from redbot.core import commands
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
@@ -41,16 +42,16 @@ class PlayFile(commands.Cog):
             return await ctx.send("The Audio cog is not loaded. Please load it to use this command.")
 
         try:
-            # Download the attachment
-            audio_file = io.BytesIO()
-            await attachment.save(audio_file)
-            audio_file.seek(0)
-            log.info("File saved to memory")
+            # Download the attachment to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
+                await attachment.save(temp_audio_file.name)
+                temp_audio_file.seek(0)
+                log.info("File saved to temporary file")
 
             # Use Audio cog to play the file
             await audio_cog.command_play(
                 ctx, 
-                query=audio_file,
+                query=temp_audio_file.name
             )
 
             await ctx.send(f"Now playing: {attachment.filename}")
