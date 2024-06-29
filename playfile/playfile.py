@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from redbot.core import commands
+from redbot.core.audio import AudioError, get_player, connect
 
 log = logging.getLogger("red.playfile")
 
@@ -47,14 +48,21 @@ class PlayFile(commands.Cog):
             await attachment.save(temp_audio_file.name)
             log.info("File saved to temporary file")
 
-            # Use Audio cog to play the file
-            query = f"local:{temp_audio_file.name}"
-            await ctx.invoke(audio_cog.play, ctx, query=query)
+            # Connect to the voice channel
+            await connect(ctx.bot, voice_channel)
+
+            # Get the player for the guild
+            player = await get_player(ctx.guild.id)
+            if not player.is_connected:
+                await player.connect(voice_channel)
+
+            # Play the audio file
+            player.play_local(temp_audio_file.name)
 
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
 
-        except Exception as e:
+        except AudioError as e:
             log.error(f"Error playing file: {str(e)}", exc_info=True)
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
 
@@ -74,7 +82,8 @@ class PlayFile(commands.Cog):
         if audio_cog is None:
             return await ctx.send("The Audio cog is not loaded.")
 
-        await ctx.invoke(audio_cog.stop, ctx)
+        player = await get_player(ctx.guild.id)
+        await player.stop()
         await ctx.send("Stopped playing file and disconnected from the voice channel.")
 
 async def setup(bot):
