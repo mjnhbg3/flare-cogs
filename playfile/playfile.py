@@ -2,7 +2,6 @@ import logging
 import os
 import tempfile
 from redbot.core import commands
-import discord
 
 log = logging.getLogger("red.playfile")
 
@@ -49,7 +48,8 @@ class PlayFile(commands.Cog):
             log.info("File saved to temporary file")
 
             # Use Audio cog to play the file
-            await ctx.invoke(audio_cog.play, query=temp_audio_file.name, channel=voice_channel)
+            query = f"local:{temp_audio_file.name}"
+            await ctx.invoke(audio_cog.play, ctx, query=query)
 
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
@@ -74,7 +74,7 @@ class PlayFile(commands.Cog):
         if audio_cog is None:
             return await ctx.send("The Audio cog is not loaded.")
 
-        await audio_cog.command_stop(ctx)
+        await ctx.invoke(audio_cog.stop, ctx)
         await ctx.send("Stopped playing file and disconnected from the voice channel.")
 
 async def setup(bot):
