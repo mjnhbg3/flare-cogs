@@ -1,12 +1,16 @@
 import io
 import logging
 from redbot.core import commands
-from redbot.cogs.audio.core.utilities import validation
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
 import discord
 
 log = logging.getLogger("red.playfile")
+
+ALLOWED_EXTENSIONS = {"mp3", "wav", "ogg"}
+
+def is_allowed_by_whitelist(filename: str) -> bool:
+    return filename.split('.')[-1].lower() in ALLOWED_EXTENSIONS
 
 class PlayFile(commands.Cog):
     def __init__(self, bot):
@@ -23,7 +27,7 @@ class PlayFile(commands.Cog):
             return await ctx.send("Please attach an audio file to play.")
 
         attachment = ctx.message.attachments[0]
-        if not await validation.is_allowed_by_whitelist(attachment.filename):
+        if not is_allowed_by_whitelist(attachment.filename):
             return await ctx.send("The file type is not allowed. Please attach a valid audio file.")
 
         if not ctx.author.voice or not ctx.author.voice.channel:
