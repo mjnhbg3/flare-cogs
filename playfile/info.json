@@ -7,13 +7,12 @@
     "disabled": false,
     "short": "Play attached audio files in voice channels",
     "description": "This cog allows users to play attached audio files (mp3, wav, aac, flac) in their current voice channel using the `[p]playfile` command.",
-    "tags": [
         "audio",
         "music",
         "file",
         "voice"
     ],
-    "requirements": [],
+    "requirements": ["PyNaCl"],
     "min_bot_version": "3.5.0",
     "hidden": false
 }
