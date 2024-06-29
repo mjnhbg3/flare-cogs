@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from redbot.core import commands
-from redbot.core.audio import AudioError, get_player, connect
+from redbot.core.bot import Red
 
 log = logging.getLogger("red.playfile")
 
@@ -12,7 +12,7 @@ def is_allowed_by_whitelist(filename: str) -> bool:
     return filename.split('.')[-1].lower() in ALLOWED_EXTENSIONS
 
 class PlayFile(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: Red):
         self.bot = bot
 
     async def red_delete_data_for_user(self, **kwargs):
@@ -49,10 +49,10 @@ class PlayFile(commands.Cog):
             log.info("File saved to temporary file")
 
             # Connect to the voice channel
-            await connect(ctx.bot, voice_channel)
+            await audio_cog.connect(ctx.author.voice.channel)
 
             # Get the player for the guild
-            player = await get_player(ctx.guild.id)
+            player = await audio_cog.get_player(ctx.guild.id)
             if not player.is_connected:
                 await player.connect(voice_channel)
 
@@ -62,7 +62,7 @@ class PlayFile(commands.Cog):
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
 
-        except AudioError as e:
+        except Exception as e:
             log.error(f"Error playing file: {str(e)}", exc_info=True)
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
 
@@ -82,7 +82,7 @@ class PlayFile(commands.Cog):
         if audio_cog is None:
             return await ctx.send("The Audio cog is not loaded.")
 
-        player = await get_player(ctx.guild.id)
+        player = await audio_cog.get_player(ctx.guild.id)
         await player.stop()
         await ctx.send("Stopped playing file and disconnected from the voice channel.")
 
