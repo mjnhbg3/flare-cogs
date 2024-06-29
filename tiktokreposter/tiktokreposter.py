@@ -50,7 +50,7 @@ class TikTokReposter(commands.Cog):
         )
         self.path = data_manager.cog_data_path(self)
         self.pattern = re.compile(
-            r"^.*https:\/\/(?:m|www|vm)?\.?tiktok\.com\/((?:.*\b(?:(?:usr|v|embed|user|video)\/|\?shareId=|\&item_id=)(\d+))|\w+)"
+            r"https?:\/\/(?:www\.)?(?:vt\.)?tiktok\.com\/(?:(?:t\/)?([^\/\?\s]+)|(?:@[\w.-]+\/video\/\d+))"
         )
         self.cache = {}
         self.ytdl_opts = {
@@ -139,13 +139,13 @@ class TikTokReposter(commands.Cog):
         channels = self.cache.get(message.guild.id, {}).get("channels", [])
         if message.channel.id not in channels:
             return
-        link = re.match(self.pattern, message.content)
+        
+        link = re.search(self.pattern, message.content)
         if link:
-            log.debug(link)
-            link = link.group(0)
+            tiktok_url = link.group(0)
             await self.dl_tiktok(
                 message.channel,
-                link,
+                tiktok_url,
                 message=message,
                 reply=self.cache.get(message.guild.id, {}).get("reply", True),
                 delete=self.cache.get(message.guild.id, {}).get("delete", False),
