@@ -33,21 +33,20 @@ class PlayFile(commands.Cog):
             return await ctx.send("You need to be in a voice channel to use this command.")
         
         voice_channel = ctx.author.voice.channel
-
+        temp_audio_file = None
         try:
             # Download the attachment to a temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{attachment.filename}") as temp_audio_file:
-                await attachment.save(temp_audio_file.name)
-                temp_audio_file.seek(0)
-                log.info(f"File saved to temporary file: {temp_audio_file.name}")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{attachment.filename}", mode='wb') as temp_file:
+                await attachment.save(temp_file.name)
+                temp_audio_file = temp_file.name
+                log.info(f"File saved to temporary file: {temp_audio_file}")
 
             # Connect to the voice channel
             voice_client = await voice_channel.connect()
 
-            # Play the audio file directly using FFmpegPCMAudio
-            audio_source = discord.FFmpegPCMAudio(temp_audio_file.name)
+            # Play the audio file using FFmpegPCMAudio with stereo output
+            audio_source = discord.FFmpegPCMAudio(temp_audio_file, options='-ac 2')
             voice_client.play(audio_source)
-
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
 
@@ -63,8 +62,11 @@ class PlayFile(commands.Cog):
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
         finally:
             # Clean up temporary file
-            if os.path.exists(temp_audio_file.name):
-                os.remove(temp_audio_file.name)
+            if temp_audio_file and os.path.exists(temp_audio_file):
+                try:
+                    os.remove(temp_audio_file)
+                except Exception as e:
+                    log.error(f"Error removing temporary file: {str(e)}", exc_info=True)
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
