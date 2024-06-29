@@ -48,7 +48,7 @@ class PlayFile(commands.Cog):
                     await voice_client.move_to(voice_channel)
 
             # Create a discord.FFmpegOpusAudio source
-            audio_source = discord.FFmpegOpusAudio(file_bytes.read(), pipe=True)
+            audio_source = discord.FFmpegOpusAudio(file_bytes, pipe=True)
 
             # Play the audio file
             voice_client.play(audio_source)
