@@ -56,7 +56,7 @@ class PlayFile(commands.Cog):
 
             # Process the file with FFmpeg to ensure mono output
             ffmpeg_command = [
-                "ffmpeg", "-y", "-i", temp_audio_file.name, "-ac", "1", processed_file.name
+                "ffmpeg", "-y", "-i", temp_audio_file.name, "-ac", "1", "-filter:a", "pan=mono|c0=c0+c1", processed_file.name
             ]
             subprocess.run(ffmpeg_command, check=True)
             log.info("File processed with FFmpeg to mono")
@@ -102,3 +102,4 @@ class PlayFile(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(PlayFile(bot))
+
