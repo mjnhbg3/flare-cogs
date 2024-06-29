@@ -51,8 +51,6 @@ class PlayFile(commands.Cog):
             await audio_cog.command_play(
                 ctx, 
                 query=audio_file,
-                query_obj=ctx,
-                interface=ctx.send
             )
 
             await ctx.send(f"Now playing: {attachment.filename}")
