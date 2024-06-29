@@ -2,6 +2,7 @@ import io
 import logging
 import tempfile
 import os
+import subprocess
 from redbot.core import commands
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
@@ -49,8 +50,21 @@ class PlayFile(commands.Cog):
                 log.info(f"File saved to temporary file: {temp_audio_file.name}")
 
             # Use FFmpeg to convert the audio to stereo
-            stereo_file = f"{temp_audio_file.name}_stereo"
-            os.system(f"ffmpeg -i {temp_audio_file.name} -ac 2 {stereo_file}")
+            base, ext = os.path.splitext(temp_audio_file.name)
+            stereo_file = f"{base}_stereo{ext}"
+            
+            ffmpeg_command = [
+                "ffmpeg",
+                "-i", temp_audio_file.name,
+                "-ac", "2",
+                "-f", ext[1:],  # Use the same format as input, without the dot
+                stereo_file
+            ]
+            
+            result = subprocess.run(ffmpeg_command, capture_output=True, text=True)
+            if result.returncode != 0:
+                log.error(f"FFmpeg error: {result.stderr}")
+                raise Exception("Failed to convert audio to stereo")
 
             # Use Audio cog to play the stereo file
             await audio_cog.command_play(ctx, query=stereo_file)
