@@ -3,8 +3,9 @@ import logging
 import asyncio
 import traceback
 from redbot.core import commands
+from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.utils.predicates import ReactionPredicate
 import discord
-from discord import opus
 
 log = logging.getLogger("red.playfile")
 
@@ -12,20 +13,6 @@ class PlayFile(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.currently_playing = {}
-        self._load_opus()
-
-    def _load_opus(self):
-        if not opus.is_loaded():
-            try:
-                opus.load_opus('libopus-0.x86.dll')  # For Windows
-            except OSError:
-                try:
-                    opus.load_opus('libopus-0.x64.dll')  # For Windows 64-bit
-                except OSError:
-                    try:
-                        opus.load_opus('libopus.so.0')  # For Linux
-                    except OSError:
-                        log.error("Failed to load Opus library. Audio playback may not work.")
 
     async def cleanup(self, ctx, audio_file=None):
         guild_id = ctx.guild.id
@@ -41,7 +28,7 @@ class PlayFile(commands.Cog):
 
         if ctx.voice_client:
             try:
-                await ctx.voice_client.disconnect()
+                await ctx.voice_client.disconnect(force=True)
                 log.info(f"Disconnected from voice channel in guild {guild_id}")
             except Exception as e:
                 log.error(f"Error disconnecting from voice channel: {str(e)}")
@@ -49,9 +36,6 @@ class PlayFile(commands.Cog):
     @commands.command()
     async def playfile(self, ctx: commands.Context):
         """Play an attached audio file in your voice channel."""
-        if not opus.is_loaded():
-            return await ctx.send("Opus library is not loaded. Audio playback is not available.")
-
         if not ctx.message.attachments:
             return await ctx.send("Please attach an audio file to play.")
 
@@ -79,20 +63,32 @@ class PlayFile(commands.Cog):
             if ctx.voice_client:
                 await ctx.voice_client.move_to(voice_channel)
             else:
-                await voice_channel.connect()
+                try:
+                    await voice_channel.connect(timeout=60, reconnect=True)
+                except asyncio.TimeoutError:
+                    await ctx.send("Connection to voice channel timed out.")
+                    return
+                except Exception as e:
+                    await ctx.send(f"Error connecting to voice channel: {e}")
+                    return
+
             log.info("Connected to voice channel")
 
-            def after_playing(error):
-                if error:
-                    log.error(f"Error after playing: {error}")
-                asyncio.run_coroutine_threadsafe(self.cleanup(ctx, audio_file), self.bot.loop)
+            # Check if lavalink is available
+            if hasattr(self.bot, 'lavalink'):
+                player = self.bot.lavalink.player_manager.create(ctx.guild.id)
+                player.store('channel', ctx.channel.id)
+                await player.set_volume(100)
+                await player.play(audio_file)
+            else:
+                # Fallback to FFmpegPCMAudio if lavalink is not available
+                source = discord.FFmpegPCMAudio(audio_file, pipe=True)
+                ctx.voice_client.play(source, after=lambda e: print('Player error: %s' % e) if e else None)
 
-            source = discord.FFmpegPCMAudio(audio_file, pipe=True)
-            ctx.voice_client.play(source, after=after_playing)
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
 
-            while ctx.voice_client and ctx.voice_client.is_playing():
+            while ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
                 await asyncio.sleep(0.1)
 
         except Exception as e:
@@ -100,8 +96,7 @@ class PlayFile(commands.Cog):
             log.error(f"Traceback: {traceback.format_exc()}")
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
         finally:
-            if not ctx.voice_client or not ctx.voice_client.is_playing():
-                await self.cleanup(ctx, audio_file)
+            await self.cleanup(ctx, audio_file)
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
