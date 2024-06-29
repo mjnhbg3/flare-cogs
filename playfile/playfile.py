@@ -83,12 +83,14 @@ class PlayFile(commands.Cog):
             await self.cleanup(ctx, temp_file_name)
 
     @commands.command()
-    async def stop(self, ctx: commands.Context):
-        """Stop the currently playing audio and disconnect."""
+    async def stopplayfile(self, ctx: commands.Context):
+        """Stop the currently playing audio file and disconnect.
+        
+        Note: This command is specific to the PlayFile cog and is different from the Audio cog's stop command."""
         if ctx.voice_client:
             ctx.voice_client.stop()
         await self.cleanup(ctx)
-        await ctx.send("Stopped playing and disconnected from the voice channel.")
+        await ctx.send("Stopped playing file and disconnected from the voice channel.")
 
 async def setup(bot):
     await bot.add_cog(PlayFile(bot))
