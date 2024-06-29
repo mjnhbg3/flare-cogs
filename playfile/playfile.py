@@ -2,10 +2,7 @@ import io
 import logging
 import tempfile
 import os
-import subprocess
 from redbot.core import commands
-from redbot.core.utils.menus import start_adding_reactions
-from redbot.core.utils.predicates import ReactionPredicate
 import discord
 
 log = logging.getLogger("red.playfile")
@@ -37,59 +34,46 @@ class PlayFile(commands.Cog):
         
         voice_channel = ctx.author.voice.channel
 
-        # Check if the Audio cog is loaded
-        audio_cog = ctx.bot.get_cog("Audio")
-        if audio_cog is None:
-            return await ctx.send("The Audio cog is not loaded. Please load it to use this command.")
-
         try:
-            # Create a temporary file with a unique name
+            # Download the attachment to a temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{attachment.filename}") as temp_audio_file:
                 await attachment.save(temp_audio_file.name)
                 temp_audio_file.seek(0)
                 log.info(f"File saved to temporary file: {temp_audio_file.name}")
 
-            # Use FFmpeg to convert the audio to stereo
-            base, ext = os.path.splitext(temp_audio_file.name)
-            stereo_file = f"{base}_stereo{ext}"
-            
-            ffmpeg_command = [
-                "ffmpeg",
-                "-i", temp_audio_file.name,
-                "-ac", "2",
-                "-f", ext[1:],  # Use the same format as input, without the dot
-                stereo_file
-            ]
-            
-            result = subprocess.run(ffmpeg_command, capture_output=True, text=True)
-            if result.returncode != 0:
-                log.error(f"FFmpeg error: {result.stderr}")
-                raise Exception("Failed to convert audio to stereo")
+            # Connect to the voice channel
+            voice_client = await voice_channel.connect()
 
-            # Use Audio cog to play the stereo file
-            await audio_cog.command_play(ctx, query=stereo_file)
+            # Play the audio file directly using FFmpegPCMAudio
+            audio_source = discord.FFmpegPCMAudio(temp_audio_file.name)
+            voice_client.play(audio_source)
+
             await ctx.send(f"Now playing: {attachment.filename}")
             log.info(f"Started playing: {attachment.filename}")
+
+            # Wait for the audio to finish playing
+            while voice_client.is_playing():
+                await discord.asyncio.sleep(1)
+
+            # Disconnect after playing
+            await voice_client.disconnect()
 
         except Exception as e:
             log.error(f"Error playing file: {str(e)}", exc_info=True)
             await ctx.send(f"An error occurred while trying to play the file: {str(e)}")
         finally:
-            # Clean up temporary files
+            # Clean up temporary file
             if os.path.exists(temp_audio_file.name):
                 os.remove(temp_audio_file.name)
-            if os.path.exists(stereo_file):
-                os.remove(stereo_file)
 
     @commands.command()
     async def stopplayfile(self, ctx: commands.Context):
         """Stop the currently playing audio file and disconnect."""
-        audio_cog = ctx.bot.get_cog("Audio")
-        if audio_cog is None:
-            return await ctx.send("The Audio cog is not loaded.")
-        
-        await audio_cog.command_stop(ctx)
-        await ctx.send("Stopped playing file and disconnected from the voice channel.")
+        if ctx.voice_client:
+            await ctx.voice_client.disconnect()
+            await ctx.send("Stopped playing file and disconnected from the voice channel.")
+        else:
+            await ctx.send("I'm not currently in a voice channel.")
 
 async def setup(bot):
     await bot.add_cog(PlayFile(bot))
