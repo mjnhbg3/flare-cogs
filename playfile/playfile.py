@@ -1,7 +1,5 @@
 import io
 import logging
-import tempfile
-import os
 from redbot.core import commands
 import discord
 
@@ -41,10 +39,14 @@ class PlayFile(commands.Cog):
             file_bytes.seek(0)
 
             # Connect to the voice channel
-            voice_client = await voice_channel.connect()
+            if ctx.voice_client is None:
+                await voice_channel.connect()
+            voice_client = ctx.voice_client
+
+            # Create a discord.FFmpegOpusAudio source
+            audio_source = discord.FFmpegOpusAudio(file_bytes.read(), pipe=True)
 
             # Play the audio file
-            audio_source = discord.FFmpegPCMAudio(file_bytes.read(), pipe=True)
             voice_client.play(audio_source)
             
             await ctx.send(f"Now playing: {attachment.filename}")
@@ -53,9 +55,6 @@ class PlayFile(commands.Cog):
             # Wait for the audio to finish playing
             while voice_client.is_playing():
                 await discord.asyncio.sleep(1)
-
-            # Disconnect after playing
-            await voice_client.disconnect()
 
         except Exception as e:
             log.error(f"Error playing file: {str(e)}", exc_info=True)
@@ -69,6 +68,7 @@ class PlayFile(commands.Cog):
     async def stopplayfile(self, ctx: commands.Context):
         """Stop the currently playing audio file and disconnect."""
         if ctx.voice_client:
+            ctx.voice_client.stop()
             await ctx.voice_client.disconnect()
             await ctx.send("Stopped playing file and disconnected from the voice channel.")
         else:
